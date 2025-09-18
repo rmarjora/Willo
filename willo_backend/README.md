@@ -34,6 +34,29 @@ Environment variables are loaded from `.env` (see `app/config.py`). Defaults are
 - Robust migration handling instead of ad-hoc initialization.
 - Per-request DB cursors with automatic rollback on errors.
 
+## Python Version & PyTorch Note
+Clustering uses `sentence-transformers` which depends on PyTorch. PyTorch wheels typically lag behind brand new Python releases. If you see an error like:
+
+```
+cannot import name 'Tensor' from 'torch' (unknown location)
+```
+
+you are likely running on an unsupported Python version (e.g. Python 3.13 before official wheels). Fix:
+
+1. Install / use Python 3.12 (recommended).
+2. Create a fresh virtual environment.
+3. Reinstall requirements.
+
+PowerShell example:
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Then retry the clustering endpoint / task.
+
 ## API (Selected Endpoints)
 
 ### Create a Form

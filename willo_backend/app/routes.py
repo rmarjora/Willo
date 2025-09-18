@@ -11,6 +11,20 @@ def get_db():
     return getattr(current_app, 'db_conn', None)
 
 
+def _safe_rollback(conn):
+    """Attempt to rollback the current transaction; swallow all errors.
+
+    This prevents leaving the connection in an aborted transaction state
+    ("current transaction is aborted, commands ignored until end of transaction block").
+    """
+    if conn is None:
+        return
+    try:
+        conn.rollback()
+    except Exception:
+        pass
+
+
 def _fetch_form_questions_with_choices(cur, form_id):
     """Internal helper to fetch all questions (and their choices) for a form.
 
@@ -365,6 +379,7 @@ def form_questions(form_id):
                 questions = _fetch_form_questions_with_choices(cur, form_id)
             return jsonify(questions), 200
         except psycopg2.Error as e:
+            _safe_rollback(conn)
             return jsonify({"error": str(e)}), 500
 
     # POST create question
@@ -379,6 +394,7 @@ def form_questions(form_id):
             if row[0]:
                 return jsonify({"error": "Form is closed and cannot be modified"}), 409
     except psycopg2.Error as e:
+        _safe_rollback(conn)
         return jsonify({"error": str(e)}), 500
 
     data = request.get_json(silent=True) or {}
@@ -573,16 +589,20 @@ def close_form(form_id: int):
                 just_closed = True
         conn.commit()
     except psycopg2.Error as e:
+        _safe_rollback(conn)
         return jsonify({"error": str(e)}), 500
 
     try:
         # Run clustering if we just closed the form now OR it was already closed but not yet clustered.
         should_cluster = (not already_clustered)
         if should_cluster:
-            compute_cluster_matches(form_id)
-            message = (
-                "Form closed and clustering completed" if just_closed else "Clustering completed"
-            )
+            status = compute_cluster_matches(form_id)
+            if isinstance(status, str) and status == 'No responses to cluster.':
+                message = "Form closed with no responses"
+            else:
+                message = (
+                    "Form closed and clustering completed" if just_closed else "Clustering completed"
+                )
         else:
             message = "Form was already closed"
         return jsonify({
@@ -633,7 +653,7 @@ def get_form_matches(form_id: int, user_id: int):
             # Fetch top matches for the user in this form
             cur.execute(
                 """
-                SELECT m.user_id_2, m.score, u.name, u.email, q.question_text
+                SELECT m.score, u.name, u.email, q.question_text
                 FROM matches m
                 JOIN users u ON m.user_id_2 = u.id
                 JOIN questions q ON m.best_question_id = q.id
@@ -646,7 +666,7 @@ def get_form_matches(form_id: int, user_id: int):
             rows = cur.fetchall()
             matches = []
             for r in rows:
-                user_id_2, score, name, email, question_text = r
+                score, name, email, question_text = r
                 matches.append({
                     "score": float(score),
                     "name": name,
@@ -658,4 +678,5 @@ def get_form_matches(form_id: int, user_id: int):
         }), 200
         
     except psycopg2.Error as e:
+        _safe_rollback(conn)
         return jsonify({"error": str(e)}), 500

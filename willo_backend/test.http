@@ -5,7 +5,7 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "title": "Test Form",
+    "title": "Test Form 2",
     "questions": [
         {
             "question_text": "What is your favorite pet?",
@@ -25,4 +25,52 @@ Accept: application/json
     ]
 }
 
-POST {{baseUrl}}/forms/12/submit
+### Submit responses
+POST {{baseUrl}}/forms/13/submit
+Content-Type: application/json
+Accept: application/json
+ 
+{
+    "name": "Charlie Brown",
+    "responses": {
+        "21": "Dog",
+        "22": "Blue",
+        "23": "Yes"
+    }
+}
+
+### Submit another response
+POST {{baseUrl}}/forms/13/submit
+Content-Type: application/json
+Accept: application/json
+ 
+{
+    "name": "Diana Prince",
+    "responses": {
+        "21": "Cat",
+        "22": "Red",
+        "23": "No"
+    }
+}
+
+### Submit another response
+POST {{baseUrl}}/forms/13/submit
+Content-Type: application/json
+Accept: application/json
+ 
+{
+    "name": "Ethan Hunt",
+    "responses": {
+        "21": "Cats",
+        "22": "Maroon",
+        "23": "Sometimes"
+    }
+}
+
+### Close the form to trigger clustering
+POST {{baseUrl}}/forms/13/close
+Accept: application/json
+
+### Get matches for user_id 1
+GET {{baseUrl}}/forms/13/matches/15
+Accept: application/json

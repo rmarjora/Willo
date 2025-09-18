@@ -6,15 +6,39 @@ from app.config import DB_CONFIG
 # Lazy imports to avoid importing heavy ML libraries at app startup
 _model = None
 
-def _get_model():
+class ClusteringDependencyError(RuntimeError):
+    """Raised when ML dependencies (torch / sentence_transformers) are not usable.
+
+    This typically happens if running under an unsupported Python version (e.g. 3.13
+    before official PyTorch wheels are released) or a partial/corrupted installation.
     """
-    Lazily load and cache the SentenceTransformer model. This avoids importing
-    transformers/torch until we actually need them.
+    pass
+
+def _get_model():
+    """Lazily load and cache the SentenceTransformer model.
+
+    Provides clearer error messages if torch / sentence_transformers cannot be imported.
+    This is especially helpful on Python versions not yet supported by PyTorch
+    (e.g. Python 3.13 at time of writing), where a cryptic
+    "cannot import name 'Tensor' from 'torch' (unknown location)" may occur.
     """
     global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer('paraphrase-mpnet-base-v2')
+        try:
+            # Import inside to keep startup light and fail only on first use.
+            from sentence_transformers import SentenceTransformer  # type: ignore
+        except Exception as e:  # Broad to catch partially installed torch errors
+            raise ClusteringDependencyError(
+                "Failed to import sentence_transformers / torch. "
+                "Likely causes: (1) Unsupported Python version for installed torch (use Python 3.12), "
+                "(2) Incomplete or corrupted torch installation. Original error: " + repr(e)
+            ) from e
+        try:
+            _model = SentenceTransformer('paraphrase-mpnet-base-v2')
+        except Exception as e:
+            raise ClusteringDependencyError(
+                "Failed to initialize SentenceTransformer model. Original error: " + repr(e)
+            ) from e
     return _model
 
 def _correlate_responses(responses):
@@ -140,6 +164,10 @@ def compute_cluster_matches(form_id):
     data = get_responses(form_id)  # { user_id: { question_id: response_text } }
     user_ids = list(data.keys())
     print('user_ids:', user_ids)
+    
+    if (len(user_ids) == 0):
+        print(f"No responses found for form_id={form_id}. Nothing to cluster.")
+        return 'No responses to cluster.'
     
     # There may be missing responses for some users, fill them with ""
     
