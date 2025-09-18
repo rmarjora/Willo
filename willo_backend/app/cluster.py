@@ -73,39 +73,6 @@ def _correlate_responses(responses):
 
     return similarity_matrices
 
-def get_responses(form_id: int):
-    """
-    Fetch responses for a given form and return a nested mapping:
-    { user_id: { question_id: response_text, ... }, ... }
-
-    Only responses belonging to questions of the specified form are returned.
-    """
-    conn = psycopg2.connect(**DB_CONFIG)
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                (
-                    """
-                    SELECT r.user_id, r.question_id, COALESCE(r.response_text, '')
-                    FROM responses r
-                    INNER JOIN questions q ON q.id = r.question_id
-                    WHERE q.form_id = %s
-                    ORDER BY r.user_id, r.question_id;
-                    """
-                ),
-                (form_id,),
-            )
-            rows = cur.fetchall()
-
-        data = {}
-        for user_id, question_id, response_text in rows:
-            if user_id not in data:
-                data[user_id] = {}
-            data[user_id][question_id] = response_text or ""
-        return data
-    finally:
-        conn.close()
-
 
 def _save_similarity_scores(form_id: int, user_ids: list[int], question_ids: list[int], overall_similarity: np.ndarray, best_questions: np.ndarray) -> int:
     """
@@ -156,12 +123,10 @@ def _save_similarity_scores(form_id: int, user_ids: list[int], question_ids: lis
     finally:
         conn.close()
 
-def compute_cluster_matches(form_id):
+def compute_cluster_matches(data: dict[int, dict[int, str]]) -> str:
     '''
     Returns the top n people who match the given person_id based on correlated responses.
     '''
-    
-    data = get_responses(form_id)  # { user_id: { question_id: response_text } }
     user_ids = list(data.keys())
     print('user_ids:', user_ids)
     

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, g
 import psycopg2
 from app.config import DB_CONFIG
 from app.cluster import compute_cluster_matches
+from app.token import generate_token, is_authorized
 
 MAX_MATCHES_PER_USER = 5 # Maximum number of matches to return per user
 routes_bp = Blueprint('routes', __name__)
@@ -24,6 +25,12 @@ def _safe_rollback(conn):
     except Exception:
         pass
 
+def _extract_token_from_header(request):
+    """Extract Bearer token from Authorization header, if present."""
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        return auth_header[len('Bearer '):].strip()
+    return None
 
 def _fetch_form_questions_with_choices(cur, form_id):
     """Internal helper to fetch all questions (and their choices) for a form.
@@ -280,11 +287,13 @@ def create_form():
                 })
 
         conn.commit()
+        token = generate_token(form_id)
         return jsonify({
             "id": form_id,
             "title": title,
             "created_at": created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
-            "questions": created_questions
+            "questions": created_questions,
+            "token": token
         }), 201
     except ValueError as ve:
         conn.rollback()
@@ -295,8 +304,7 @@ def create_form():
         print('Database error during form creation:', e)
         return jsonify({"error": str(e)}), 500
 
-
-@routes_bp.route('/forms/<int:form_id>', methods=['DELETE'])
+@routes_bp.route('/forms/<int:form_id>', methods=['DELETE', 'GET'])
 def delete_form(form_id):
     """Delete a form and all dependent data (questions, choices, responses) via ON DELETE CASCADE.
 
@@ -305,7 +313,22 @@ def delete_form(form_id):
     404 if form does not exist.
 
     Note: Because cascade happens automatically, we gather counts beforehand in a single transaction.
+    
+    Deleting a form requires authorization via a token in the Authorization header:
     """
+    
+    if request.method == 'GET':
+        print('Received GET request for form details for form_id:', form_id)
+        try:
+            responses = _get_responses(form_id)
+        except Exception as e:
+            print('Error fetching responses:', e)
+            return jsonify({"error": "Failed to fetch form responses"}), 500
+        return jsonify({
+            "form_id": form_id,
+            "responded_users": list(responses.keys())
+        })
+
     conn = get_db()
     if conn is None:
         return jsonify({"error": "Database connection not available"}), 500
@@ -596,7 +619,7 @@ def close_form(form_id: int):
         # Run clustering if we just closed the form now OR it was already closed but not yet clustered.
         should_cluster = (not already_clustered)
         if should_cluster:
-            status = compute_cluster_matches(form_id)
+            status = compute_cluster_matches(_get_responses(form_id))
             if isinstance(status, str) and status == 'No responses to cluster.':
                 message = "Form closed with no responses"
             else:
@@ -680,3 +703,38 @@ def get_form_matches(form_id: int, user_id: int):
     except psycopg2.Error as e:
         _safe_rollback(conn)
         return jsonify({"error": str(e)}), 500
+
+def _get_responses(form_id: int):
+    """
+    Fetch responses for a given form and return a nested mapping:
+    { user_id: { question_id: response_text, ... }, ... }
+
+    Only responses belonging to questions of the specified form are returned.
+    """
+    conn = get_db()
+    if conn is None:
+        raise RuntimeError("Database connection not available")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                (
+                    """
+                    SELECT r.user_id, r.question_id, COALESCE(r.response_text, '')
+                    FROM responses r
+                    INNER JOIN questions q ON q.id = r.question_id
+                    WHERE q.form_id = %s
+                    ORDER BY r.user_id, r.question_id;
+                    """
+                ),
+                (form_id,),
+            )
+            rows = cur.fetchall()
+
+        data = {}
+        for user_id, question_id, response_text in rows:
+            if user_id not in data:
+                data[user_id] = {}
+            data[user_id][question_id] = response_text or ""
+        return data
+    finally:
+        conn.close()
