@@ -56,8 +56,8 @@ def init_db():
             form_id INTEGER NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
             user_id_1 INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             user_id_2 INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            best_question_id INTEGER REFERENCES questions(id) DEFAULT NULL,
             score REAL NOT NULL, -- similarity score
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id_1, user_id_2) -- prevent duplicate matches
         );
         """

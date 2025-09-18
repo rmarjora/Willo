@@ -3,50 +3,49 @@ import psycopg2
 from psycopg2.extras import execute_batch
 from app.config import DB_CONFIG
 
-# Use scikit-learn TF-IDF to avoid torch dependency
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+# Lazy imports to avoid importing heavy ML libraries at app startup
+_model = None
+
+def _get_model():
+    """
+    Lazily load and cache the SentenceTransformer model. This avoids importing
+    transformers/torch until we actually need them.
+    """
+    global _model
+    if _model is None:
+        from sentence_transformers import SentenceTransformer
+        _model = SentenceTransformer('paraphrase-mpnet-base-v2')
+    return _model
 
 def _correlate_responses(responses):
     """
-    Input: list of lists of responses to each question (shape: questions x users)
-    Return list of similarity matrices (one per question), computed via TF-IDF + cosine similarity.
-    Empty responses get zeroed out so they don't contribute.
+    Input: list of lists of responses to each question
+    Correlate two sets of responses using a simple similarity metric using a sentence tranformer
     """
+
+    # Import here to avoid import-time failures if sklearn isn't installed at startup
+    from sklearn.metrics.pairwise import cosine_similarity
+
     similarity_matrices = []
-    for response_list in responses:
-        # Normalize and track empty entries
-        response_list = [(r or '').strip() for r in response_list]
-        no_response_idx = [i for i, r in enumerate(response_list) if r == '']
+    for responseList in responses:
+        responseList = [r.strip() for r in responseList]
+        no_response_idx = [i for i, r in enumerate(responseList) if r == '']
+        model = _get_model()
+        embeddings = model.encode(responseList, batch_size=32, show_progress_bar=True, normalize_embeddings=True)
+        
+        print('embeddings shape:', embeddings.shape)
 
-        if len(response_list) == 0:
-            similarity_matrices.append(np.zeros((0, 0), dtype=float))
-            continue
-
-        # Vectorize using TF-IDF; use character + word analyzer for short texts robustness
-        if all(text == '' for text in response_list):
-            # All empty: zero matrix
-            sim = np.zeros((len(response_list), len(response_list)), dtype=float)
-            similarity_matrices.append(sim)
-            continue
-
-        vectorizer = TfidfVectorizer(analyzer='word', ngram_range=(1, 2), min_df=1)
-        try:
-            X = vectorizer.fit_transform(response_list)
-        except ValueError:
-            # Rare case: no valid features (e.g., only stopwords). Treat as zeros
-            sim = np.zeros((len(response_list), len(response_list)), dtype=float)
-            similarity_matrices.append(sim)
-            continue
-
-        sim = cosine_similarity(X)
-
+        # Each column in similarity matrix corresponds to a single user's correlations with other user's responses to the same question
+        similarity_matrix = cosine_similarity(embeddings)
+        
         # Zero out similarities for no responses
         for idx in no_response_idx:
-            sim[idx, :] = 0.0
-            sim[:, idx] = 0.0
+            similarity_matrix[idx, :] = 0.0
+            similarity_matrix[:, idx] = 0.0
 
-        similarity_matrices.append(sim)
+        print('similarity matrix:', similarity_matrix)
+
+        similarity_matrices.append(similarity_matrix)
 
     return similarity_matrices
 
@@ -84,7 +83,7 @@ def get_responses(form_id: int):
         conn.close()
 
 
-def _save_similarity_scores(form_id: int, user_ids: list[int], overall_similarity: np.ndarray) -> int:
+def _save_similarity_scores(form_id: int, user_ids: list[int], question_ids: list[int], overall_similarity: np.ndarray, best_questions: np.ndarray) -> int:
     """
     Persist pairwise similarity scores into the matches table using upsert.
     Returns number of rows upserted.
@@ -103,7 +102,8 @@ def _save_similarity_scores(form_id: int, user_ids: list[int], overall_similarit
             u1 = user_ids[i]
             u2 = user_ids[j]
             score = float(overall_similarity[i, j])
-            rows.append((form_id, u1, u2, score))
+            best_question_id = question_ids[best_questions[i][j]]  # Get the question with the highest similarity
+            rows.append((form_id, u1, u2, score, best_question_id))
 
     if not rows:
         return 0
@@ -115,10 +115,10 @@ def _save_similarity_scores(form_id: int, user_ids: list[int], overall_similarit
                 cur,
                 (
                     """
-                    INSERT INTO matches (form_id, user_id_1, user_id_2, score)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO matches (form_id, user_id_1, user_id_2, score, best_question_id)
+                    VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (user_id_1, user_id_2)
-                    DO UPDATE SET score = EXCLUDED.score, form_id = EXCLUDED.form_id;
+                    DO UPDATE SET score = EXCLUDED.score, form_id = EXCLUDED.form_id, best_question_id = EXCLUDED.best_question_id;
                     """
                 ),
                 rows,
@@ -160,26 +160,11 @@ def compute_cluster_matches(form_id):
     similarity_matrices = _correlate_responses(responses)
 
     # Sum the similarity matrices to get an overall similarity score
-    overall_similarity = np.sum(similarity_matrices, axis=0)
+    overall_similarity = (np.sum(similarity_matrices, axis=0) + len(similarity_matrices)) / (2 * len(similarity_matrices))  # map to [0, 1]
+    
+    # Get the best question for each pair
+    best_questions = np.argmax(similarity_matrices, axis=0)
 
     # Persist pairwise similarity scores
-    upserted = _save_similarity_scores(form_id, user_ids, overall_similarity)
+    upserted = _save_similarity_scores(form_id, user_ids, question_ids, overall_similarity, best_questions)
     print(f"Upserted {upserted} match rows for form_id={form_id}")
-
-    # Build a simple result: top 5 matches per user
-    top_matches = {}
-    if len(user_ids) > 1:
-        for i, uid in enumerate(user_ids):
-            # score to others (exclude self)
-            scores = []
-            for j, other_uid in enumerate(user_ids):
-                if i == j:
-                    continue
-                scores.append((other_uid, float(overall_similarity[i, j])))
-            # sort descending by score
-            scores.sort(key=lambda x: x[1], reverse=True)
-            top_matches[uid] = scores[:5]
-    else:
-        top_matches = {user_ids[0]: []} if user_ids else {}
-
-    return top_matches

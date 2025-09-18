@@ -558,25 +558,36 @@ def close_form(form_id: int):
 
     try:
         already_closed = False
+        already_clustered = False
+        just_closed = False
         with conn.cursor() as cur:
-            cur.execute("SELECT closed FROM forms WHERE id = %s;", (form_id,))
+            # Fetch both closed and clustered flags
+            cur.execute("SELECT closed, clustered FROM forms WHERE id = %s;", (form_id,))
             row = cur.fetchone()
             if row is None:
                 return jsonify({"error": "Form not found"}), 404
             already_closed = bool(row[0])
+            already_clustered = bool(row[1])
             if not already_closed:
                 cur.execute("UPDATE forms SET closed = TRUE WHERE id = %s;", (form_id,))
+                just_closed = True
         conn.commit()
     except psycopg2.Error as e:
         return jsonify({"error": str(e)}), 500
 
     try:
-        result = compute_cluster_matches(form_id)
+        # Run clustering if we just closed the form now OR it was already closed but not yet clustered.
+        should_cluster = (not already_clustered)
+        if should_cluster:
+            compute_cluster_matches(form_id)
+            message = (
+                "Form closed and clustering completed" if just_closed else "Clustering completed"
+            )
+        else:
+            message = "Form was already closed"
         return jsonify({
             "form_id": form_id,
-            "closed": True,
-            "already_closed": already_closed,
-            "top_matches": result
+            "message" : message,
         }), 200
     except Exception as e:  # Model or compute errors
         return jsonify({"error": f"Clustering failed: {e}"}), 500
@@ -622,9 +633,10 @@ def get_form_matches(form_id: int, user_id: int):
             # Fetch top matches for the user in this form
             cur.execute(
                 """
-                SELECT m.user_id_2, m.score, u.name, u.email
+                SELECT m.user_id_2, m.score, u.name, u.email, q.question_text
                 FROM matches m
                 JOIN users u ON m.user_id_2 = u.id
+                JOIN questions q ON m.best_question_id = q.id
                 WHERE m.form_id = %s AND m.user_id_1 = %s
                 ORDER BY m.score DESC
                 LIMIT %s;
@@ -634,10 +646,11 @@ def get_form_matches(form_id: int, user_id: int):
             rows = cur.fetchall()
             matches = []
             for r in rows:
-                user_id_2, score, name, email = r
+                user_id_2, score, name, email, question_text = r
                 matches.append({
                     "score": float(score),
                     "name": name,
+                    "most_similar_answer": question_text
                 })
         return jsonify({
             "form_id": form_id,

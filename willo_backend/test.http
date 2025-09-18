@@ -1,0 +1,28 @@
+# First create a new form
+@baseUrl = http://localhost:5000
+POST {{baseUrl}}/forms
+Content-Type: application/json
+Accept: application/json
+
+{
+    "title": "Test Form",
+    "questions": [
+        {
+            "question_text": "What is your favorite pet?",
+            "options": ["Dog", "Cat", "Bird", "Other"],
+            "allow_open_response": true
+        },
+        {
+            "question_text": "What is your favorite color?",
+            "options": ["Red", "Blue", "Green", "Other"],
+            "allow_open_response": true
+        },
+        {
+            "question_text": "Do you enjoy outdoor activities?",
+            "options": ["Yes", "No", "Sometimes"],
+            "allow_open_response": true
+        }
+    ]
+}
+
+POST {{baseUrl}}/forms/12/submit
