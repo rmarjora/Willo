@@ -123,7 +123,7 @@ def _save_similarity_scores(form_id: int, user_ids: list[int], question_ids: lis
     finally:
         conn.close()
 
-def compute_cluster_matches(data: dict[int, dict[int, str]]) -> str:
+def compute_cluster_matches(form_id, data: dict[int, dict[int, str]]) -> str:
     '''
     Returns the top n people who match the given person_id based on correlated responses.
     '''

@@ -1,11 +1,12 @@
 # First create a new form
 @baseUrl = http://localhost:5000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb3JtX2lkIjoxNiwiaWF0IjoxNzU4MTg2MzE1fQ.1EN8FjSTPAZKJfyCMZtinlGGnNTm94BOtMC3X6RE5NU
 POST {{baseUrl}}/forms
 Content-Type: application/json
 Accept: application/json
 
 {
-    "title": "Test Form 2",
+    "title": "Test Form 3",
     "questions": [
         {
             "question_text": "What is your favorite pet?",
@@ -26,51 +27,56 @@ Accept: application/json
 }
 
 ### Submit responses
-POST {{baseUrl}}/forms/13/submit
+POST {{baseUrl}}/forms/16/submit
 Content-Type: application/json
 Accept: application/json
  
 {
     "name": "Charlie Brown",
     "responses": {
-        "21": "Dog",
-        "22": "Blue",
-        "23": "Yes"
+        "30": "Dog",
+        "31": "Blue",
+        "32": "Yes"
     }
 }
 
 ### Submit another response
-POST {{baseUrl}}/forms/13/submit
+POST {{baseUrl}}/forms/16/submit
 Content-Type: application/json
 Accept: application/json
  
 {
     "name": "Diana Prince",
     "responses": {
-        "21": "Cat",
-        "22": "Red",
-        "23": "No"
+        "30": "Cat",
+        "31": "Red",
+        "32": "No"
     }
 }
 
 ### Submit another response
-POST {{baseUrl}}/forms/13/submit
+POST {{baseUrl}}/forms/16/submit
 Content-Type: application/json
 Accept: application/json
  
 {
     "name": "Ethan Hunt",
     "responses": {
-        "21": "Cats",
-        "22": "Maroon",
-        "23": "Sometimes"
+        "30": "Cats",
+        "31": "Maroon",
+        "32": "Sometimes"
     }
 }
 
 ### Close the form to trigger clustering
-POST {{baseUrl}}/forms/13/close
+POST {{baseUrl}}/forms/16/close
 Accept: application/json
+Authorization: Bearer {{token}}
 
 ### Get matches for user_id 1
-GET {{baseUrl}}/forms/13/matches/15
+GET {{baseUrl}}/forms/13/matches/20
+Accept: application/json
+
+### Get form details
+GET {{baseUrl}}/forms/13
 Accept: application/json

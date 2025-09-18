@@ -9,7 +9,14 @@ routes_bp = Blueprint('routes', __name__)
 
 def get_db():
     from flask import current_app
-    return getattr(current_app, 'db_conn', None)
+    conn = getattr(current_app, 'db_conn', None)
+    if conn is None or getattr(conn, 'closed', 1) != 0:
+        # Reinitialize
+        import psycopg2
+        from app.config import DB_CONFIG
+        conn = psycopg2.connect(**DB_CONFIG)
+        current_app.db_conn = conn
+    return conn
 
 
 def _safe_rollback(conn):
@@ -31,6 +38,19 @@ def _extract_token_from_header(request):
     if auth_header.startswith('Bearer '):
         return auth_header[len('Bearer '):].strip()
     return None
+
+@routes_bp.before_request
+def jwt_middleware():
+    """Middleware to extract and validate JWT token from Authorization header.
+
+    Sets g.form_id if valid token present, else None.
+    """
+    token = _extract_token_from_header(request)
+    if token:
+        form_id = is_authorized(token)
+        g.form_id = form_id
+    else:
+        g.form_id = None
 
 def _fetch_form_questions_with_choices(cur, form_id):
     """Internal helper to fetch all questions (and their choices) for a form.
@@ -287,7 +307,11 @@ def create_form():
                 })
 
         conn.commit()
-        token = generate_token(form_id)
+        try:
+            token = generate_token(form_id)
+        except Exception as e:
+            print('Error generating token for form', form_id, e)
+            return jsonify({"error": "Failed to generate access token"}), 500
         return jsonify({
             "id": form_id,
             "title": title,
@@ -314,20 +338,23 @@ def delete_form(form_id):
 
     Note: Because cascade happens automatically, we gather counts beforehand in a single transaction.
     
-    Deleting a form requires authorization via a token in the Authorization header:
+    Accessing any of these endpoints requires a valid Bearer token in the Authorization header:
     """
+    
+    if g.form_id != form_id:
+        return jsonify({"error": "Unauthorized: invalid or missing token"}), 401
     
     if request.method == 'GET':
         print('Received GET request for form details for form_id:', form_id)
         try:
-            responses = _get_responses(form_id)
+            responded_users = _get_responded_users(form_id)
+            return jsonify({
+                "form_id": form_id,
+                "responded_users": responded_users
+            }), 200
         except Exception as e:
             print('Error fetching responses:', e)
             return jsonify({"error": "Failed to fetch form responses"}), 500
-        return jsonify({
-            "form_id": form_id,
-            "responded_users": list(responses.keys())
-        })
 
     conn = get_db()
     if conn is None:
@@ -591,6 +618,10 @@ def close_form(form_id: int):
     """
     Closes the form (sets forms.closed = TRUE) and triggers clustering.
     """
+    
+    if g.form_id != form_id:
+        return jsonify({"error": "Unauthorized: invalid or missing token"}), 401
+    
     conn = get_db()
     if conn is None:
         return jsonify({"error": "Database connection not available"}), 500
@@ -619,7 +650,7 @@ def close_form(form_id: int):
         # Run clustering if we just closed the form now OR it was already closed but not yet clustered.
         should_cluster = (not already_clustered)
         if should_cluster:
-            status = compute_cluster_matches(_get_responses(form_id))
+            status = compute_cluster_matches(form_id, _get_responses(form_id))
             if isinstance(status, str) and status == 'No responses to cluster.':
                 message = "Form closed with no responses"
             else:
@@ -703,6 +734,32 @@ def get_form_matches(form_id: int, user_id: int):
     except psycopg2.Error as e:
         _safe_rollback(conn)
         return jsonify({"error": str(e)}), 500
+    
+def _get_responded_users(form_id: int):
+    '''
+    Fetch user names for users who have submitted responses to the given form.
+    '''
+    conn = get_db()
+    if conn is None:
+        raise RuntimeError("Database connection not available")
+    with conn.cursor() as cur:
+        cur.execute(
+            (
+                """
+                SELECT DISTINCT u.id, u.name
+                FROM users u
+                JOIN responses r ON r.user_id = u.id
+                JOIN questions q ON r.question_id = q.id
+                WHERE q.form_id = %s
+                ORDER BY u.name;
+                """
+            ),
+            (form_id,),
+        )
+        rows = cur.fetchall()
+        return [name for _, name in rows]
+        
+    
 
 def _get_responses(form_id: int):
     """
