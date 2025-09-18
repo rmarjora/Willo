@@ -19,7 +19,7 @@ FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))
 # CORS configuration: comma-separated list of origins or '*' for all
 _origins_raw = os.getenv("ALLOWED_ORIGINS", "*").strip()
 if _origins_raw == '*':
-    ALLOWED_ORIGINS = '*'
+    ALLOWED_ORIGINS = '*'  # Allow all local network addresses
 else:
     # Filter out empty fragments after splitting
     ALLOWED_ORIGINS = [o.strip() for o in _origins_raw.split(',') if o.strip()]

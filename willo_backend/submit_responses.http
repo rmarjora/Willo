@@ -1,0 +1,39 @@
+@baseUrl = http://localhost:5000
+@formId = 7
+
+### Submit responses
+POST {{baseUrl}}/forms/{{formId}}/submit
+Content-Type: application/json
+Accept: application/json
+
+{
+    "name": "Alice Smith",
+    "email": "alice@example.com",
+    "responses": {
+        "2": "Yes",
+        "4": "No",
+        "6": "Maybe"
+    }
+}
+
+### Submit another response
+POST {{baseUrl}}/forms/{{formId}}/submit
+Content-Type: application/json
+Accept: application/json
+
+{
+    "name": "Bob Johnson",
+    "responses": {
+        "2": "No",
+        "4": "Yes",
+        "6": "Yes"
+    }
+}
+
+### Close the form to trigger clustering
+POST {{baseUrl}}/forms/{{formId}}/close
+Accept: application/json
+
+### Get matches for user_id 1
+GET {{baseUrl}}/forms/{{formId}}/matches/1
+Accept: application/json

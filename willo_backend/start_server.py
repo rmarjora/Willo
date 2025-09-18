@@ -25,6 +25,7 @@ from app.server import create_app
 from app.config import FLASK_HOST, FLASK_PORT
 
 SHUTTING_DOWN = False
+SERVER = None  # Will hold the waitress server instance
 
 
 def _graceful_shutdown(app):
@@ -33,6 +34,14 @@ def _graceful_shutdown(app):
         return
     SHUTTING_DOWN = True
     print("\n[INFO] Shutting down server...")
+    # Close HTTP server first so it stops accepting new connections
+    global SERVER
+    if SERVER is not None:
+        try:
+            SERVER.close()
+            print("[INFO] HTTP server closed.")
+        except Exception as e:  # pragma: no cover - defensive
+            print(f"[WARN] Error closing HTTP server: {e}")
     # Close DB connection if it exists
     db = getattr(app, 'db_conn', None)
     if db is not None:
@@ -65,12 +74,23 @@ def main():
             except Exception:  # pragma: no cover - some signals may not be settable on Windows
                 pass
 
-    from waitress import serve
+    from waitress import create_server
+    global SERVER
+    SERVER = create_server(app, host=FLASK_HOST, port=FLASK_PORT)
     print(f"[INFO] Serving app on http://{FLASK_HOST}:{FLASK_PORT} (Press Ctrl+C to quit)")
     try:
-        serve(app, host=FLASK_HOST, port=FLASK_PORT)
+        # This blocks until the server is closed or interrupted
+        SERVER.run()
     except KeyboardInterrupt:
+        # Convert Ctrl+C into our unified shutdown path
         handle_signal(signal.SIGINT if hasattr(signal, 'SIGINT') else 0, None)
+    finally:
+        # Ensure server is closed if we exit this block for any reason
+        try:
+            if SERVER is not None:
+                SERVER.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

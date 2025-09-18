@@ -13,6 +13,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS forms (
             id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
+            closed BOOLEAN DEFAULT FALSE,
+            clustered BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -21,7 +23,7 @@ def init_db():
             id SERIAL PRIMARY KEY,
             form_id INTEGER NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
             question_text TEXT NOT NULL,
-            allow_open_responses BOOLEAN DEFAULT TRUE
+            allow_open_response BOOLEAN DEFAULT TRUE
         );
 
         -- 3. Choices table: stores possible choices for multiple-choice questions
@@ -46,6 +48,17 @@ def init_db():
             response_text TEXT, -- text response or selected choice IDs as JSON/array
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(question_id, user_id) -- ensures a user can't answer same question twice
+        );
+        
+        -- 6. Matches table: stores matched pairs of users
+        CREATE TABLE IF NOT EXISTS matches (
+            id SERIAL PRIMARY KEY,
+            form_id INTEGER NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+            user_id_1 INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            user_id_2 INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            score REAL NOT NULL, -- similarity score
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id_1, user_id_2) -- prevent duplicate matches
         );
         """
         cur.execute(create_table_query)
