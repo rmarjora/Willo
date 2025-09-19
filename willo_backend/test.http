@@ -1,6 +1,6 @@
 # First create a new form
 @baseUrl = http://localhost:5000
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb3JtX2lkIjoxNiwiaWF0IjoxNzU4MTg2MzE1fQ.1EN8FjSTPAZKJfyCMZtinlGGnNTm94BOtMC3X6RE5NU
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb3JtX2lkIjozMywiaWF0IjoxNzU4MjcxNzg3fQ.McfOsBOw4cxP-upRF-WjKXIudtH22GpqyKKiZS5dAts
 POST {{baseUrl}}/forms
 Content-Type: application/json
 Accept: application/json
@@ -10,71 +10,71 @@ Accept: application/json
     "questions": [
         {
             "question_text": "What is your favorite pet?",
-            "options": ["Dog", "Cat", "Bird", "Other"],
+            "choices": ["Dog", "Cat", "Bird", "Other"],
             "allow_open_response": true
         },
         {
             "question_text": "What is your favorite color?",
-            "options": ["Red", "Blue", "Green", "Other"],
+            "choices": ["Red", "Blue", "Green", "Other"],
             "allow_open_response": true
         },
         {
             "question_text": "Do you enjoy outdoor activities?",
-            "options": ["Yes", "No", "Sometimes"],
+            "choices": ["Yes", "No", "Sometimes"],
             "allow_open_response": true
         }
     ]
 }
 
 ### Submit responses
-POST {{baseUrl}}/forms/16/submit
+POST {{baseUrl}}/forms/33/submit
 Content-Type: application/json
 Accept: application/json
  
 {
     "name": "Charlie Brown",
     "responses": {
-        "30": "Dog",
-        "31": "Blue",
-        "32": "Yes"
+        "94": "Dog",
+        "95": "Blue",
+        "96": "Yes"
     }
 }
 
 ### Submit another response
-POST {{baseUrl}}/forms/16/submit
+POST {{baseUrl}}/forms/33/submit
 Content-Type: application/json
 Accept: application/json
  
 {
     "name": "Diana Prince",
     "responses": {
-        "30": "Cat",
-        "31": "Red",
-        "32": "No"
+        "94": "Cat",
+        "95": "Red",
+        "96": "No"
     }
 }
 
 ### Submit another response
-POST {{baseUrl}}/forms/16/submit
+POST {{baseUrl}}/forms/33/submit
 Content-Type: application/json
 Accept: application/json
  
 {
     "name": "Ethan Hunt",
     "responses": {
-        "30": "Cats",
-        "31": "Maroon",
-        "32": "Sometimes"
+        "94": "Cats",
+        "95": "Maroon",
+        "96": "Sometimes"
     }
 }
 
 ### Close the form to trigger clustering
-POST {{baseUrl}}/forms/16/close
+POST {{baseUrl}}/forms/33/close
 Accept: application/json
 Authorization: Bearer {{token}}
 
 ### Get matches for user_id 1
-GET {{baseUrl}}/forms/13/matches/20
+GET {{baseUrl}}/forms/33/matches/20
 Accept: application/json
 
 ### Get form details

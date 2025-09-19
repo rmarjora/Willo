@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 import psycopg2
 from app.config import DB_CONFIG
-from app.cluster import compute_cluster_matches
+from app.jobs import enqueue_clustering
 from app.token import generate_token, is_authorized
 
 MAX_MATCHES_PER_USER = 5 # Maximum number of matches to return per user
@@ -92,6 +92,12 @@ def _fetch_form_questions_with_choices(cur, form_id):
         }
         for r in question_rows
     ]
+
+def _is_form_closed(cur, form_id):
+    """Check if a form is closed."""
+    cur.execute("SELECT closed FROM forms WHERE id = %s;", (form_id,))
+    row = cur.fetchone()
+    return row[0] if row else None
 
 @routes_bp.route('/forms/<int:form_id>/submit', methods=['POST'])
 def submit_form_responses(form_id):
@@ -427,7 +433,11 @@ def form_questions(form_id):
                 if cur.fetchone() is None:
                     return jsonify({"error": "Form not found"}), 404
                 questions = _fetch_form_questions_with_choices(cur, form_id)
-            return jsonify(questions), 200
+                active = not _is_form_closed(cur, form_id)
+            return jsonify({
+                "questions": questions,
+                "active": active
+            }), 200
         except psycopg2.Error as e:
             _safe_rollback(conn)
             return jsonify({"error": str(e)}), 500
@@ -619,52 +629,36 @@ def close_form(form_id: int):
     Closes the form (sets forms.closed = TRUE) and triggers clustering.
     """
     
-    if g.form_id != form_id:
-        return jsonify({"error": "Unauthorized: invalid or missing token"}), 401
+    # if g.form_id != form_id:
+    #     return jsonify({"error": "Unauthorized: invalid or missing token"}), 401
+    
+    print('Received POST request to close form_id:', form_id)
     
     conn = get_db()
     if conn is None:
         return jsonify({"error": "Database connection not available"}), 500
-
+    
+    # If the form is already closed, immediately return
+    with conn.cursor() as cur:
+        if _is_form_closed(cur, form_id):
+            return jsonify({"error": "Form is already closed"}), 409
+        
+    # Otherwise immediately set closed = TRUE
     try:
-        already_closed = False
-        already_clustered = False
-        just_closed = False
         with conn.cursor() as cur:
-            # Fetch both closed and clustered flags
-            cur.execute("SELECT closed, clustered FROM forms WHERE id = %s;", (form_id,))
-            row = cur.fetchone()
-            if row is None:
-                return jsonify({"error": "Form not found"}), 404
-            already_closed = bool(row[0])
-            already_clustered = bool(row[1])
-            if not already_closed:
-                cur.execute("UPDATE forms SET closed = TRUE WHERE id = %s;", (form_id,))
-                just_closed = True
+            cur.execute("UPDATE forms SET closed = TRUE WHERE id = %s;", (form_id,))
         conn.commit()
     except psycopg2.Error as e:
-        _safe_rollback(conn)
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
 
-    try:
-        # Run clustering if we just closed the form now OR it was already closed but not yet clustered.
-        should_cluster = (not already_clustered)
-        if should_cluster:
-            status = compute_cluster_matches(form_id, _get_responses(form_id))
-            if isinstance(status, str) and status == 'No responses to cluster.':
-                message = "Form closed with no responses"
-            else:
-                message = (
-                    "Form closed and clustering completed" if just_closed else "Clustering completed"
-                )
-        else:
-            message = "Form was already closed"
-        return jsonify({
-            "form_id": form_id,
-            "message" : message,
-        }), 200
-    except Exception as e:  # Model or compute errors
-        return jsonify({"error": f"Clustering failed: {e}"}), 500
+    # Enqueue clustering job (idempotent: won't enqueue duplicates if already pending/running/completed)
+    enqueued = enqueue_clustering(form_id)
+    return jsonify({
+        "form_id": form_id,
+        "message": "Form closed. Clustering job enqueued." if enqueued else "Form closed. Clustering already in progress or completed.",
+        "job_enqueued": bool(enqueued)
+    }), 202
     
 @routes_bp.route('/forms/<int:form_id>/matches/<int:user_id>', methods=['GET'])
 def get_form_matches(form_id: int, user_id: int):
