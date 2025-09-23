@@ -1,10 +1,27 @@
 // ./components/FormManagementView.jsx
 import { useState } from "react";
-import { endQuiz } from "../services/api";
+import { endQuiz, getForm } from "../services/api";
 
 const FormManagementView = ({ formId, onBack }) => {
   const [isQuizEnded, setIsQuizEnded] = useState(false);
   const [message, setMessage] = useState("");
+  const [respondedUsers, setRespondedUsers] = useState([]);
+
+  useEffect(() => {
+    const loadForm = async () => {
+      if (!formId) return;
+
+      try {
+        const data = await getForm(formId);
+        setRespondedUsers(data.responded_users || []);
+      } catch (err) {
+        setMessage("Failed to load form");
+      }
+    };
+
+    loadForm();
+  }, [formId]);
+
 
   const endQuizHandler = async () => {
     if (!formId) return;
@@ -44,6 +61,13 @@ const FormManagementView = ({ formId, onBack }) => {
       >
         Back
       </button>
+
+      <h3 className="text-lg font-semibold mt-6">Responded Users</h3>
+      <ul className="list-disc ml-6">
+        {respondedUsers.map((user) => (
+          <li key={user.id}>{user.name}</li>
+        ))}
+      </ul>
 
       {message && (
         <p className="mt-4 text-center font-medium">

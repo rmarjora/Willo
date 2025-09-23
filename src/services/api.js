@@ -81,6 +81,17 @@ export const endQuiz = async (formId) => {
   }
 };
 
+export const getForm = async (formId) => {
+  try {
+    const res = await fetch(`${API_URL}/forms/${formId}`);
+    if (!res.ok) throw new Error("Failed to fetch form");
+    return await res.json();
+  } catch (err) {
+    console.error("Error fetching form:", err);
+    throw err;
+  }
+};
+
 export const createForm = async (formData) => {
   try {
     const res = await fetch(`${API_URL}/forms`, {
