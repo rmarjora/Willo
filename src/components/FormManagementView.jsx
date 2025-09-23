@@ -8,20 +8,36 @@ const FormManagementView = ({ formId, onBack }) => {
   const [respondedUsers, setRespondedUsers] = useState([]);
 
   useEffect(() => {
-    const loadForm = async () => {
-      if (!formId) return;
+    if (!formId) return;
 
+    let intervalId;
+    let isCancelled = false;
+
+    const loadForm = async () => {
       try {
         const data = await getForm(formId);
-        setRespondedUsers(data.responded_users || []);
+        if (!isCancelled) {
+          setRespondedUsers(data.responded_users || []);
+        }
       } catch (err) {
-        setMessage("Failed to load form");
+        console.error("Error fetching form data:", err);
       }
     };
 
+    // Initial fetch
     loadForm();
+    // Poll every 15 seconds
+    intervalId = setInterval(loadForm, 15000);
+
+    // Cleanup on unmount or when formId changes
+    return () => {
+      isCancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [formId]);
 
+
+  console.log("Responded Users:", respondedUsers);
 
   const endQuizHandler = async () => {
     if (!formId) return;
@@ -63,9 +79,10 @@ const FormManagementView = ({ formId, onBack }) => {
       </button>
 
       <h3 className="text-lg font-semibold mt-6">Responded Users</h3>
+      <p>Total Responded: {respondedUsers.length}</p>
       <ul className="list-disc ml-6">
         {respondedUsers.map((user, index) => (
-          <li key={index}>{user.name}</li>
+          <li key={index}>{user}</li>
         ))}
       </ul>
 
