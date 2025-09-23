@@ -98,6 +98,11 @@ const PlayerView = () => {
     }
   };
 
+  const formatScore = (score) => {
+    if (typeof score !== "number") return "";
+    return `${Math.round(score * 100)}%`;
+  }
+
   // Poll quiz status while waiting
   useEffect(() => {
     if (!quizId || step !== "waiting") return;
@@ -242,9 +247,15 @@ const PlayerView = () => {
      {match === null ? (
   <p className="mt-4">Calculating your closest match...</p>
 ) : match.top_matches && match.top_matches.length > 0 ? (
-  <div className="mt-4">
-    <h3 className="font-semibold mb-2">Your Closest Match:</h3>
-    <p className="text-lg font-medium">{match.top_matches[0].name}</p>
+  <div className="mt-4 bg-indigo-50 rounded-xl shadow-md p-6 flex flex-col items-center">
+    <h3 className="font-semibold mb-4 text-indigo-700 text-xl">Your Closest Match:</h3>
+    <p className="text-2xl font-bold text-indigo-900 mb-2">{match.top_matches[0].name}</p>
+    <p className="text-lg text-indigo-600 font-semibold mb-2">
+      {formatScore(match.top_matches[0].score)} Match
+    </p>
+    <p className="text-md text-gray-700 mb-2">
+      Most similar answer: <span className="font-medium">{match.top_matches[0].most_similar_answer}</span>
+    </p>
   </div>
 ) : (
   <p className="mt-4"> 😢 Unfortunately, 0 matches found 😢</p>
