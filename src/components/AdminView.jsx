@@ -54,7 +54,7 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
         {
           question_text: "",
           allow_open_response: false,
-          choices: ["", ""], // Start with two empty choices
+          choices: ["", ""], 
         },
       ],
     });
@@ -67,7 +67,7 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
   };
 
   const deleteQuestion = (index) => {
-    if (index < baseQuestions.length) return;
+    if (formData.questions.length <= 1) return; 
     const newQuestions = formData.questions.filter((_, i) => i !== index);
     setFormData({ ...formData, questions: newQuestions });
   };
@@ -188,15 +188,14 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
                   )}
                 </label>
 
-                {index >= baseQuestions.length && (
-                  <button
-                    type="button"
-                    onClick={() => deleteQuestion(index)}
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-semibold self-start mt-2"
-                  >
-                    Delete Question
-                  </button>
-                )}
+                <button
+  type="button"
+  onClick={() => deleteQuestion(index)}
+  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-semibold self-start mt-2"
+  disabled={formData.questions.length <= 1}
+>
+  Delete Question
+</button>
               </div>
             ))}
 

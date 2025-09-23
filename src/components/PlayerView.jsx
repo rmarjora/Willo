@@ -292,9 +292,15 @@ const PlayerView = () => {
           {quizTitle && (
             <h1 className="text-2xl font-bold mb-4 text-indigo-700">{quizTitle}</h1>
           )}
-          <h2 className="text-xl font-semibold mb-6 text-gray-800 text-center">
-            Hello {playerName},<br />{q.question_text}
-          </h2>
+          {current === 0 ? (
+  <h2 className="text-xl font-semibold mb-6 text-gray-800 text-center">
+    Hello {playerName},<br />{q.question_text}
+  </h2>
+) : (
+  <h2 className="text-xl font-semibold mb-6 text-gray-800 text-center">
+    {q.question_text}
+  </h2>
+)}
 
           <div className="grid grid-cols-2 gap-4 w-full mb-6">
             {q.choices?.length > 0 && q.choices.map((opt, idx) => (
