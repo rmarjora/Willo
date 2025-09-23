@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { getQuestions, submitAnswer, getQuizStatus, getPlayerMatches } from "../services/api";
+import { useParams } from "react-router-dom";
 
 const PlayerView = () => {
+  const { id } = useParams();
+  const quiz_id = id;
   const [step, setStep] = useState("menu");
   const [current, setCurrent] = useState(0);
   const [nameInput, setNameInput] = useState("");
@@ -15,25 +18,61 @@ const PlayerView = () => {
   const [quizId, setQuizId] = useState(null);
   const [quizIdInput, setQuizIdInput] = useState("");
   const [match, setMatch] = useState(null);
+  const [matchLoading, setMatchLoading] = useState(true);
+  const [questionsAnswered, setQuestionsAnswered] = useState(
+    Number(window.localStorage.getItem("questions_answered")) || 0
+  );
+  const [quizTitle, setQuizTitle] = useState(""); // <-- Add this
 
   const handleStart = () => {
     setStep("quiz");
     setCurrent(0);
+    setPlayerId(null);
+    // window.localStorage.clear();
   };
 
   const handlePlayAgain = () => {
-     setStep("menu");
+    setStep("menu");
     setCurrent(0);
     setNameInput("");
     setPlayerName("");
-    setPlayerId(null);
-    setAnswers([]);       
-    setQuestions([]);     
-    setQuizId(null);
-    setQuizIdInput("");
+    setAnswers([]);
+    setQuestions([]);
+    setQuizId(window.localStorage.getItem("quiz_id"));
+    setQuizIdInput(quiz_id || "");
     setError("");
     setMatch(null);
+    setQuestionsAnswered(Number(window.localStorage.getItem("questions_answered")) || 0);
+    setQuizTitle(""); // <-- Reset title
   };
+
+  const handleCheckresults = () => {
+    setStep("finalResults");
+  };
+
+  useEffect(() => {
+    const storedId = window.localStorage.getItem("user_id");
+    const storedQuizId = window.localStorage.getItem("quiz_id");
+    const storeUserName = window.localStorage.getItem("user_name");
+    const storedQuestionsAnswered = window.localStorage.getItem("questions_answered");
+
+    if (storeUserName) {
+      setPlayerName(storeUserName);
+      setNameInput(storeUserName);
+    }
+    if (storedQuizId) {
+      setQuizId(storedQuizId);
+    }
+    if (storedId) {
+      setPlayerId(storedId);
+    }
+    if (storedQuestionsAnswered) {
+      setQuestionsAnswered(Number(storedQuestionsAnswered));
+    }
+    if (quiz_id) {
+      setQuizIdInput(quiz_id);
+    }
+  }, [quiz_id]);
 
   const handleNext = async (option) => {
     const newAnswers = [...answers, { questionId: questions[current].id, response: option }];
@@ -45,9 +84,10 @@ const PlayerView = () => {
     if (isFinalQuestion) {
       try {
         const result = await submitAnswer(quizId, playerName, newAnswers);
-        console.log("Submit response:", result);
-        setPlayerId(result.user_id); // backend returns user_id
+        setPlayerId(result.user_id);
         window.localStorage.setItem("user_id", result.user_id);
+        window.localStorage.setItem("questions_answered", newAnswers.length);
+        setQuestionsAnswered(newAnswers.length);
       } catch (err) {
         console.error("Failed to submit answers:", err);
       }
@@ -56,12 +96,6 @@ const PlayerView = () => {
       setCurrent(current + 1);
     }
   };
-
-  const user_id = window.localStorage.getItem("user_id");
-
-  if (user_id !== null && step != 'waiting' && step !== 'finalResults') {
-    setStep("waiting");
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,10 +110,18 @@ const PlayerView = () => {
     }
     setPlayerName(nameInput.trim());
     setQuizId(quizIdInput.trim());
+    window.localStorage.setItem("quiz_id", quizIdInput.trim());
+    window.localStorage.setItem("user_name", nameInput.trim());
+    console.log("data stored to localStorage:", {
+      quiz_id: quizIdInput.trim(),
+      user_name: nameInput.trim(),
+      user_id: playerId
+    });
 
     setLoading(true);
     try {
       const data = await getQuestions(quizIdInput.trim());
+      console.log(data); // <-- Move this inside the try block
 
       if (data.active === false) {
         setError("This quiz is not active right now.");
@@ -87,13 +129,15 @@ const PlayerView = () => {
         return;
       }
 
+      setQuizTitle(data.title || "");
+
       const questionsArray = Array.isArray(data.questions) ? data.questions : [];
       const filteredQuestions = questionsArray.filter(q => q.active !== false);
 
       setQuestions(filteredQuestions);
 
       if (filteredQuestions.length > 0) {
-        handleStart();
+        setStep("showTitle");
       } else {
         setError("No active questions available in this quiz.");
       }
@@ -108,44 +152,65 @@ const PlayerView = () => {
   const formatScore = (score) => {
     if (typeof score !== "number") return "";
     return `${Math.round(score * 100)}%`;
-  }
+  };
 
   // Poll quiz status while waiting
   useEffect(() => {
     if (!quizId || step !== "waiting") return;
 
-    const interval = setInterval(async () => {
+    // First check instantly
+    const checkStatus = async () => {
       try {
         const { active } = await getQuizStatus(quizId);
         if (active === false) setStep("finalResults");
       } catch (err) {
         console.error("Failed to check quiz status:", err);
       }
-    }, 5000);
+    };
+
+    checkStatus(); // Run immediately
+
+    // Then poll every 15 seconds
+    const interval = setInterval(checkStatus, 15000);
 
     return () => clearInterval(interval);
   }, [quizId, step]);
 
   // Fetch closest match after quiz ends
- useEffect(() => {
-  if (step !== "finalResults" || !quizId || !playerId) return;
+  useEffect(() => {
+    if (step !== "finalResults" || !quizId || !playerId) return;
 
-  let interval = setInterval(async () => {
-    try {
-      const data = await getPlayerMatches(quizId, playerId);
-      console.log("Fetched match data:", data);
+    setMatchLoading(true);
 
-      if (data) {
-        setMatch(data);      // set state
-        clearInterval(interval); // stop polling once we get data
+    // First check instantly
+    const fetchMatches = async () => {
+      try {
+        const data = await getPlayerMatches(quizId, playerId);
+        console.log("Fetched match data:", data);
+
+        if (data && data.top_matches && data.top_matches.length > 0) {
+          setMatch(data);
+          setMatchLoading(false);
+          clearInterval(interval); // stop polling once we get data
+        } else if (data && data.top_matches && data.top_matches.length === 0) {
+          setMatch(data);
+          setMatchLoading(false);
+          clearInterval(interval); // stop polling if server says 0 matches
+        }
+        // else: keep polling if data is not valid
+      } catch (err) {
+        console.error("Error fetching matches:", err);
+        // Optionally set an error state here
       }
-    } catch (err) {
-      console.error("Error fetching matches:", err);
-    }
-  }, 5000); // poll every 5 seconds
+    };
 
-  return () => clearInterval(interval);
-}, [step, quizId, playerId]);
+    fetchMatches(); // Run immediately
+
+    // Then poll every 15 seconds
+    const interval = setInterval(fetchMatches, 15000);
+
+    return () => clearInterval(interval);
+  }, [step, quizId, playerId]);
 
   // --- Render ---
   if (step === "menu") return (
@@ -159,6 +224,7 @@ const PlayerView = () => {
           onChange={(e) => setNameInput(e.target.value)}
           className="mb-4 px-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full text-lg"
         />
+        { !quiz_id && (
         <input
           type="text"
           placeholder="Quiz ID"
@@ -166,6 +232,7 @@ const PlayerView = () => {
           onChange={e => setQuizIdInput(e.target.value)}
           className="mb-4 px-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full text-lg"
         />
+        )}
         <button
           type="submit"
           className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 w-full text-lg"
@@ -174,6 +241,26 @@ const PlayerView = () => {
         </button>
         {error && <p className="mt-4 text-red-500">{error}</p>}
       </form>
+      {playerId !== null && quizId !== null && (
+        <button
+          onClick={handleCheckresults}
+          className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
+        >
+          Check Results
+        </button>
+      )}
+    </div>
+  );
+
+  if (step === "showTitle") return (
+    <div className="p-6 flex flex-col items-center">
+      <h1 className="text-3xl font-bold mb-4">{quizTitle}</h1>
+      <button
+        onClick={handleStart}
+        className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
+      >
+        Begin
+      </button>
     </div>
   );
 
@@ -195,6 +282,9 @@ const PlayerView = () => {
 
     return (
       <div className="p-6">
+        {quizTitle && (
+          <h1 className="text-3xl font-bold mb-2">{quizTitle}</h1>
+        )}
         <h2 className="text-2xl font-bold mb-4">
           Hello {playerName}, {q.question_text}
         </h2>
@@ -243,30 +333,39 @@ const PlayerView = () => {
     <div className="result-screen">
       <p>{playerName}, Waiting for the quiz to be finished</p>
       <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>Please Wait </p>
+      <button
+        onClick={handlePlayAgain}
+        className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
+      >
+        Home
+      </button>
     </div>
   );
 
   if (step === "finalResults") return (
     <div className="result-screen p-6">
       <h2 className="text-2xl font-bold mb-4">Results</h2>
-      <p>{playerName}, you have answered {questions.length} questions!</p>
+      <p>
+        {(playerName || window.localStorage.getItem("user_name"))}, you have answered{" "}
+        {(questions.length || questionsAnswered || window.localStorage.getItem("questions_answered"))} questions!
+      </p>
 
-     {match === null ? (
-  <p className="mt-4">Calculating your closest match...</p>
-) : match.top_matches && match.top_matches.length > 0 ? (
-  <div className="mt-4 bg-indigo-50 rounded-xl shadow-md p-6 flex flex-col items-center">
-    <h3 className="font-semibold mb-4 text-indigo-700 text-xl">Your Closest Match:</h3>
-    <p className="text-2xl font-bold text-indigo-900 mb-2">{match.top_matches[0].name}</p>
-    <p className="text-lg text-indigo-600 font-semibold mb-2">
-      {formatScore(match.top_matches[0].score)} Match
-    </p>
-    <p className="text-md text-gray-700 mb-2">
-      Most similar answer: <span className="font-medium">{match.top_matches[0].most_similar_answer}</span>
-    </p>
-  </div>
-) : (
-  <p className="mt-4"> 😢 Unfortunately, 0 matches found 😢</p>
-)}
+      {matchLoading ? (
+        <p className="mt-4">Waiting for admin to close the quiz...</p>
+      ) : match && match.top_matches && match.top_matches.length > 0 ? (
+        <div className="mt-4 bg-indigo-50 rounded-xl shadow-md p-6 flex flex-col items-center">
+          <h3 className="font-semibold mb-4 text-indigo-700 text-xl">Your Closest Match:</h3>
+          <p className="text-2xl font-bold text-indigo-900 mb-2">{match.top_matches[0].name}</p>
+          <p className="text-lg text-indigo-600 font-semibold mb-2">
+            {formatScore(match.top_matches[0].score)} Match
+          </p>
+          <p className="text-md text-gray-700 mb-2">
+            Most similar answer: <span className="font-medium">{match.top_matches[0].most_similar_answer}</span>
+          </p>
+        </div>
+      ) : match && match.top_matches && match.top_matches.length === 0 ? (
+        <p className="mt-4"> 😢 Unfortunately, 0 matches found 😢</p>
+      ) : null}
 
       <button
         onClick={handlePlayAgain}

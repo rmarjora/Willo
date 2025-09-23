@@ -50,10 +50,10 @@ export const getQuestions = async (formId) => {
     if (!res.ok) throw new Error("Failed to fetch questions");
     const data = await res.json();
     if (data && Array.isArray(data.questions)) {
-      return { active: data.active, questions: data.questions };
+      return { active: data.active, questions: data.questions, title: data.title || "" };
     }
     if (Array.isArray(data)) {
-      return { active: true, questions: data }; 
+      return { active: true, questions: data, title: data.title || "" }; 
     }
     return { active: true, questions: [] };
   } catch (err) {

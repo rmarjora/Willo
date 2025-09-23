@@ -102,7 +102,12 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
           <h1 className="text-2xl font-bold mb-4">Question Creation Panel</h1>
           <h2 className="text-lg font-semibold">Title</h2>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <input type="text" placeholder="Title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="border p-2 rounded" />
+            <input 
+            type="text" 
+            placeholder="Title" 
+            value={formData.title} 
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
+            className="border p-2 rounded" />
 
             <h2 className="text-lg font-semibold">Questions</h2>
             {formData.questions.map((q, index) => (

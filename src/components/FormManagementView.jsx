@@ -32,7 +32,7 @@ const FormManagementView = ({ formId, onBack }) => {
     } catch (err) {
         if(err.message.includes("CONFLICT")) {
             setIsQuizEnded(true);
-            setMessage("Quiz was alreaded ended")
+            setMessage("Quiz was already ended")
         } else {
       setMessage(`Error ending form: ${err.message}`);
     }
