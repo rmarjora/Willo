@@ -64,8 +64,8 @@ const FormManagementView = ({ formId, onBack }) => {
 
       <h3 className="text-lg font-semibold mt-6">Responded Users</h3>
       <ul className="list-disc ml-6">
-        {respondedUsers.map((user) => (
-          <li key={user.id}>{user.name}</li>
+        {respondedUsers.map((user, index) => (
+          <li key={index}>{user.name}</li>
         ))}
       </ul>
 
