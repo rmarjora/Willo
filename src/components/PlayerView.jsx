@@ -47,6 +47,7 @@ const PlayerView = () => {
         const result = await submitAnswer(quizId, playerName, newAnswers);
         console.log("Submit response:", result);
         setPlayerId(result.user_id); // backend returns user_id
+        window.localStorage.setItem("user_id", result.user_id);
       } catch (err) {
         console.error("Failed to submit answers:", err);
       }
@@ -55,6 +56,12 @@ const PlayerView = () => {
       setCurrent(current + 1);
     }
   };
+
+  const user_id = window.localStorage.getItem("user_id");
+
+  if (user_id !== null) {
+    setStep("waiting");
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
