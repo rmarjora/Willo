@@ -59,7 +59,7 @@ const PlayerView = () => {
 
   const user_id = window.localStorage.getItem("user_id");
 
-  if (user_id !== null) {
+  if (user_id !== null && step != 'waiting' && step !== 'finalResults') {
     setStep("waiting");
   }
 
