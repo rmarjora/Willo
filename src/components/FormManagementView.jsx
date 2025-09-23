@@ -1,5 +1,5 @@
 // ./components/FormManagementView.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { endQuiz, getForm } from "../services/api";
 
 const FormManagementView = ({ formId, onBack }) => {
