@@ -56,41 +56,43 @@ const FormManagementView = ({ formId, onBack }) => {
  };
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Managing Form ID: {formId}</h2>
+    <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl">
+        <h2 className="text-2xl font-bold mb-4">Managing Form ID: {formId}</h2>
 
-      <button
-        disabled={isQuizEnded || !formId}
-        onClick={endQuizHandler}
-        className={`mt-6 px-4 py-2 rounded ${
-          isQuizEnded || !formId
-            ? "bg-gray-400 cursor-not-allowed text-white"
-            : "bg-red-600 text-white hover:bg-red-700"
-        }`}
-      >
-        End Form
-      </button>
+        <button
+          disabled={isQuizEnded || !formId}
+          onClick={endQuizHandler}
+          className={`mt-6 px-4 py-2 rounded ${
+            isQuizEnded || !formId
+              ? "bg-gray-400 cursor-not-allowed text-white"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }`}
+        >
+          End Form
+        </button>
 
-      <button
-        onClick={onBack}
-        className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 mt-4"
-      >
-        Back
-      </button>
+        <button
+          onClick={onBack}
+          className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 mt-4"
+        >
+          Back
+        </button>
 
-      <h3 className="text-lg font-semibold mt-6">Responded Users</h3>
-      <p>Total Responded: {respondedUsers.length}</p>
-      <ul className="list-disc ml-6">
-        {respondedUsers.map((user, index) => (
-          <li key={index}>{user}</li>
-        ))}
-      </ul>
+        <h3 className="text-lg font-semibold mt-6">Responded Users</h3>
+        <p>Total Responded: {respondedUsers.length}</p>
+        <ul className="list-disc ml-6">
+          {respondedUsers.map((user, index) => (
+            <li key={index}>{user}</li>
+          ))}
+        </ul>
 
-      {message && (
-        <p className="mt-4 text-center font-medium">
-          {isQuizEnded ? "✅" : "❌"} {message}
-        </p>
-      )}
+        {message && (
+          <p className="mt-4 text-center font-medium">
+            {isQuizEnded ? "✅" : "❌"} {message}
+          </p>
+        )}
+      </div>
     </div>
   );
 };

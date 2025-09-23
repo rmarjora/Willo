@@ -47,12 +47,34 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
   };
 
   const addQuestion = () => {
-    setFormData({ ...formData, questions: [...formData.questions, { question_text: "", allow_open_response: false, choices: [] }] });
+    setFormData({
+      ...formData,
+      questions: [
+        ...formData.questions,
+        {
+          question_text: "",
+          allow_open_response: false,
+          choices: ["", ""], // Start with two empty choices
+        },
+      ],
+    });
+  };
+
+  const addChoice = (qIndex) => {
+    const newQuestions = [...formData.questions];
+    newQuestions[qIndex].choices.push("");
+    setFormData({ ...formData, questions: newQuestions });
   };
 
   const deleteQuestion = (index) => {
     if (index < baseQuestions.length) return;
     const newQuestions = formData.questions.filter((_, i) => i !== index);
+    setFormData({ ...formData, questions: newQuestions });
+  };
+
+  const removeChoice = (qIndex, cIndex) => {
+    const newQuestions = [...formData.questions];
+    newQuestions[qIndex].choices = newQuestions[qIndex].choices.filter((_, idx) => idx !== cIndex);
     setFormData({ ...formData, questions: newQuestions });
   };
 
@@ -82,7 +104,8 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
   }, [message]);
 
  return (
-    <div className="p-6 max-w-4xl mx-auto">
+  <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+    <div className="p-6 max-w-4xl mx-auto bg-white rounded-2xl shadow-xl w-full">
       {/* Message Box (only for errors/success, not for ID) */}
       {message && (
         <div className={`mb-4 p-3 rounded flex items-center gap-2 font-medium ${
@@ -112,23 +135,65 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
             <h2 className="text-lg font-semibold">Questions</h2>
             {formData.questions.map((q, index) => (
               <div key={index} className="flex flex-col gap-2 border-b pb-2">
-                <input type="text" placeholder={`Question ${index + 1}`} value={q.question_text} onChange={(e) => handleQuestionChange(index, e.target.value)} className="border p-2 rounded" />
+                <input
+                  type="text"
+                  placeholder={`Question ${index + 1}`}
+                  value={q.question_text}
+                  onChange={(e) => handleQuestionChange(index, e.target.value)}
+                  className="border p-2 rounded"
+                />
 
-                {q.choices.length > 0 && (
-                  <div className="ml-4">
-                    <h3 className="font-medium">Choices:</h3>
-                    {q.choices.map((choice, cIndex) => (
-                      <input key={cIndex} type="text" value={choice} onChange={(e) => handleChoiceChange(index, cIndex, e.target.value)} className="border p-1 rounded mb-1 w-full" />
-                    ))}
-                  </div>
-                )}
+                <div className="ml-4">
+                  <h3 className="font-medium">Choices:</h3>
+                  {q.choices.map((choice, cIndex) => (
+                    <div key={cIndex} className="flex items-center gap-2 mb-1">
+                      <input
+                        type="text"
+                        value={choice}
+                        onChange={(e) => handleChoiceChange(index, cIndex, e.target.value)}
+                        className="border p-1 rounded w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeChoice(index, cIndex)}
+                        className={`text-red-600 text-xs px-2 py-1 rounded hover:bg-red-100 ${
+                          !q.allow_open_response && q.choices.length <= 2 ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        title="Remove Choice"
+                        disabled={!q.allow_open_response && q.choices.length <= 2}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addChoice(index)}
+                    className="bg-indigo-500 text-white px-2 py-1 rounded mt-2 hover:bg-indigo-600 text-sm"
+                  >
+                    + Add Choice
+                  </button>
+                </div>
 
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={q.allow_open_response} onChange={() => toggleAllowOpenResponse(index)} /> Allow Open Response
+                  <input
+                    type="checkbox"
+                    checked={q.allow_open_response}
+                    onChange={() => toggleAllowOpenResponse(index)}
+                    disabled={q.choices.length < 2}
+                  />{" "}
+                  Allow Open Response
+                  {q.choices.length < 2 && (
+                    <span className="text-xs text-gray-500 ml-2">Minimum 2 choices required</span>
+                  )}
                 </label>
 
                 {index >= baseQuestions.length && (
-                  <button type="button" onClick={() => deleteQuestion(index)} className="text-red-600 text-sm self-start">
+                  <button
+                    type="button"
+                    onClick={() => deleteQuestion(index)}
+                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-semibold self-start mt-2"
+                  >
                     Delete Question
                   </button>
                 )}
@@ -174,7 +239,8 @@ const AdminView = ({ onFormCreated, onManageForm }) => {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default AdminView;

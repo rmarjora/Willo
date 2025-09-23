@@ -214,66 +214,72 @@ const PlayerView = () => {
 
   // --- Render ---
   if (step === "menu") return (
-    <div>
-      <h1 className="text-5xl font-extrabold mb-8">Willo</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col items-center w-full max-w-md">
-        <input
-          type="text"
-          placeholder="Enter your name"
-          value={nameInput}
-          onChange={(e) => setNameInput(e.target.value)}
-          className="mb-4 px-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full text-lg"
-        />
-        { !quiz_id && (
-        <input
-          type="text"
-          placeholder="Quiz ID"
-          value={quizIdInput}
-          onChange={e => setQuizIdInput(e.target.value)}
-          className="mb-4 px-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full text-lg"
-        />
+    <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+      <div className="bg-white rounded-2xl shadow-xl px-10 py-12 flex flex-col items-center">
+        <h1 className="text-5xl font-extrabold mb-8">Willo</h1>
+        <form onSubmit={handleSubmit} className="flex flex-col items-center w-full max-w-md">
+          <input
+            type="text"
+            placeholder="Enter your name"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            className="mb-4 px-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full text-lg"
+          />
+          { !quiz_id && (
+          <input
+            type="text"
+            placeholder="Quiz ID"
+            value={quizIdInput}
+            onChange={e => setQuizIdInput(e.target.value)}
+            className="mb-4 px-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full text-lg"
+          />
+          )}
+          <button
+            type="submit"
+            className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 w-full text-lg"
+          >
+            {loading ? "Loading..." : "Start Quiz"}
+          </button>
+          {error && <p className="mt-4 text-red-500">{error}</p>}
+        </form>
+        {playerId !== null && quizId !== null && (
+          <button
+            onClick={handleCheckresults}
+            className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
+          >
+            Check Results
+          </button>
         )}
-        <button
-          type="submit"
-          className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 w-full text-lg"
-        >
-          {loading ? "Loading..." : "Start Quiz"}
-        </button>
-        {error && <p className="mt-4 text-red-500">{error}</p>}
-      </form>
-      {playerId !== null && quizId !== null && (
-        <button
-          onClick={handleCheckresults}
-          className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
-        >
-          Check Results
-        </button>
-      )}
+      </div>
     </div>
   );
 
   if (step === "showTitle") return (
-    <div className="p-6 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-4">{quizTitle}</h1>
-      <button
-        onClick={handleStart}
-        className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
-      >
-        Begin
-      </button>
+    <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+      <div className="bg-white rounded-2xl shadow-xl px-10 py-12 flex flex-col items-center">
+        <h1 className="text-4xl font-extrabold mb-8 text-indigo-700">{quizTitle}</h1>
+        <button
+          onClick={handleStart}
+          className="px-8 py-4 bg-indigo-700 text-white rounded-2xl hover:bg-indigo-800 text-lg font-semibold"
+        >
+          Start Quiz
+        </button>
+      </div>
     </div>
   );
 
   if (step === "quiz") {
     if (!questions.length || !questions[current]) {
       return (
-        <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4">
-            No active questions available for this quiz.
-          </h2>
-          <button onClick={handlePlayAgain} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700">
-            Back to Start
-          </button>
+        <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+          <div className="bg-white rounded-2xl shadow-xl px-10 py-12 flex flex-col items-center">
+            <h2 className="text-2xl font-bold mb-4">
+              No active questions available for this quiz.
+            </h2>
+            <button onClick={handlePlayAgain} className="px-8 py-4 bg-indigo-700 text-white rounded-2xl hover:bg-indigo-800 text-lg font-semibold">
+              Back to Start
+            </button>
+          </div>
         </div>
       );
     }
@@ -281,27 +287,29 @@ const PlayerView = () => {
     const q = questions[current];
 
     return (
-      <div className="p-6">
-        {quizTitle && (
-          <h1 className="text-3xl font-bold mb-2">{quizTitle}</h1>
-        )}
-        <h2 className="text-2xl font-bold mb-4">
-          Hello {playerName}, {q.question_text}
-        </h2>
+      <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+        <div className="bg-white rounded-2xl shadow-xl px-10 py-12 flex flex-col items-center w-full max-w-lg">
+          {quizTitle && (
+            <h1 className="text-2xl font-bold mb-4 text-indigo-700">{quizTitle}</h1>
+          )}
+          <h2 className="text-xl font-semibold mb-6 text-gray-800 text-center">
+            Hello {playerName},<br />{q.question_text}
+          </h2>
 
-        <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
-          {q.choices?.length > 0 && q.choices.map((opt, idx) => (
-            <button
-              key={opt.id || idx}
-              onClick={() => handleNext(opt.choice_text || opt)}
-              className="p-4 rounded-xl bg-indigo-100 hover:bg-indigo-300"
-            >
-              {opt.choice_text || opt}
-            </button>
-          ))}
+          <div className="grid grid-cols-2 gap-4 w-full mb-6">
+            {q.choices?.length > 0 && q.choices.map((opt, idx) => (
+              <button
+                key={opt.id || idx}
+                onClick={() => handleNext(opt.choice_text || opt)}
+                className="w-full py-3 rounded-xl bg-indigo-100 hover:bg-indigo-300 text-indigo-800 font-medium transition"
+              >
+                {opt.choice_text || opt}
+              </button>
+            ))}
+          </div>
 
           {q.allow_open_response && (
-            <div className="flex flex-col gap-4 w-full col-span-2 mt-4">
+            <div className="flex flex-col gap-4 w-full mb-6">
               <input
                 type="text"
                 placeholder="Type your answer..."
@@ -310,69 +318,70 @@ const PlayerView = () => {
                 className="px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
-                onClick={() => {
-                  if (!openResponse.trim()) return;
-                  handleNext(openResponse.trim());
-                }}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
+                onClick={() => handleNext(openResponse)}
+                className="px-8 py-3 bg-indigo-700 text-white rounded-2xl hover:bg-indigo-800 text-lg font-semibold"
               >
                 Submit Answer
               </button>
             </div>
           )}
-        </div>
 
-        <p className="mt-6">
-          Question {current + 1} / {questions.length}
-        </p>
+          <p className="mt-6 text-gray-500">
+            Question {current + 1} / {questions.length}
+          </p>
+        </div>
       </div>
     );
   }
 
   if (step === "waiting") return (
-    <div className="result-screen">
-      <p>{playerName}, Waiting for the quiz to be finished</p>
-      <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>Please Wait </p>
-      <button
-        onClick={handlePlayAgain}
-        className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
-      >
-        Home
-      </button>
+    <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+      <div className="bg-white rounded-2xl shadow-xl px-10 py-12 flex flex-col items-center">
+        <p>{playerName}, Waiting for the quiz to be finished</p>
+        <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>Please Wait </p>
+        <button
+          onClick={handlePlayAgain}
+          className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
+        >
+          Home
+        </button>
+      </div>
     </div>
   );
 
   if (step === "finalResults") return (
-    <div className="result-screen p-6">
-      <h2 className="text-2xl font-bold mb-4">Results</h2>
-      <p>
-        {(playerName || window.localStorage.getItem("user_name"))}, you have answered{" "}
-        {(questions.length || questionsAnswered || window.localStorage.getItem("questions_answered"))} questions!
-      </p>
+    <div className="min-h-screen flex items-center justify-center bg-indigo-100">
+      <div className="bg-white rounded-2xl shadow-xl px-10 py-12 flex flex-col items-center">
+        <h2 className="text-2xl font-bold mb-4">Results</h2>
+        <p>
+          {(playerName || window.localStorage.getItem("user_name"))}, you have answered{" "}
+          {(questions.length || questionsAnswered || window.localStorage.getItem("questions_answered"))} questions!
+        </p>
 
-      {matchLoading ? (
-        <p className="mt-4">Waiting for admin to close the quiz...</p>
-      ) : match && match.top_matches && match.top_matches.length > 0 ? (
-        <div className="mt-4 bg-indigo-50 rounded-xl shadow-md p-6 flex flex-col items-center">
-          <h3 className="font-semibold mb-4 text-indigo-700 text-xl">Your Closest Match:</h3>
-          <p className="text-2xl font-bold text-indigo-900 mb-2">{match.top_matches[0].name}</p>
-          <p className="text-lg text-indigo-600 font-semibold mb-2">
-            {formatScore(match.top_matches[0].score)} Match
-          </p>
-          <p className="text-md text-gray-700 mb-2">
-            Most similar answer: <span className="font-medium">{match.top_matches[0].most_similar_answer}</span>
-          </p>
-        </div>
-      ) : match && match.top_matches && match.top_matches.length === 0 ? (
-        <p className="mt-4"> 😢 Unfortunately, 0 matches found 😢</p>
-      ) : null}
+        {matchLoading ? (
+          <p className="mt-4">Waiting for admin to close the quiz...</p>
+        ) : match && match.top_matches && match.top_matches.length > 0 ? (
+          <div className="mt-4 bg-indigo-50 rounded-xl shadow-md p-6 flex flex-col items-center">
+            <h3 className="font-semibold mb-4 text-indigo-700 text-xl">Your Closest Match:</h3>
+            <p className="text-2xl font-bold text-indigo-900 mb-2">{match.top_matches[0].name}</p>
+            <p className="text-lg text-indigo-600 font-semibold mb-2">
+              {formatScore(match.top_matches[0].score)} Match
+            </p>
+            <p className="text-md text-gray-700 mb-2">
+              Most similar answer: <span className="font-medium">{match.top_matches[0].most_similar_answer}</span>
+            </p>
+          </div>
+        ) : match && match.top_matches && match.top_matches.length === 0 ? (
+          <p className="mt-4"> 😢 Unfortunately, 0 matches found 😢</p>
+        ) : null}
 
-      <button
-        onClick={handlePlayAgain}
-        className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
-      >
-        Home
-      </button>
+        <button
+          onClick={handlePlayAgain}
+          className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700"
+        >
+          Home
+        </button>
+      </div>
     </div>
   );
 
